@@ -22,7 +22,7 @@ universityRouter.post("/register", async (req, res) => {
       const existingUser = await Student.findOne({ email });
 
       if (existingUser) {
-        res.status(400).send({ message: "User with this Email Already Exists!" });
+        res.status(409).send({ message: "User with this Email Already Exists!" });
       } else {
         bcrypt.hash(password, saltRounds, async function (err, hash) {
           if (err) {
@@ -73,6 +73,7 @@ universityRouter.post("/register", async (req, res) => {
 
 
 
+
 universityRouter.post("/login", async (req, res) => {
   try {
     const { email, password } = req.body;
@@ -83,8 +84,8 @@ universityRouter.post("/login", async (req, res) => {
       // Check if it's admin login
       if (email === "admin@gmail.com" && password === "admin@123") {
         // Hardcoded token for admin
-        const adminToken = jwt.sign({ userType: "admin" }, process.env.SecretKey, { expiresIn: '1h' });
-        res.status(200).send({ message: "Admin logged in successfully!", token: adminToken });
+        const adminToken = jwt.sign({ userType: "admin" }, process.env.SecretKey, );
+        res.status(200).send({ message: "Admin logged in successfully!", token: adminToken ,userType: "admin@123"});
       } else {
         // Regular user login
         const user = await Student.findOne({ email });
@@ -174,7 +175,7 @@ universityRouter.get("/", auth, async (req, res) => {
         // Fetch marks for each subject of the student
         for (const subject of student.subjects) {
           const marks = await Mark.findOne({ student: student._id, subject: subject._id });
-          subjectsWithMarks.push({ subject: subject.name, marks: marks ? marks.marks : null });
+          subjectsWithMarks.push({ subject: subject.name, marks: marks ? marks.marks : null, subjectId: subject._id });
         }
 
         studentsWithMarks.push({
@@ -309,6 +310,53 @@ universityRouter.patch("/admin/marks/:studentId/:subjectId", auth, async (req, r
 
 
 
+universityRouter.patch("/admin/marks/:studentId", auth, async (req, res) => {
+  try {
+    // Check if the user is an admin
+    if (req.userType !== "admin") {
+      return res.status(403).send({ message: "Access denied! Insufficient privileges." });
+    }
+
+    // Extract student ID from request parameters
+    const { studentId } = req.params;
+
+    // Find the student by ID
+    const student = await Student.findById(studentId);
+    if (!student) {
+      return res.status(404).send({ message: "Student not found!" });
+    }
+
+    // Check if marks field is present in the request body
+    if (!req.body.subjects || !Array.isArray(req.body.subjects)) {
+      return res.status(400).send({ message: "Subjects array is required!" });
+    }
+
+    // Update marks for each subject
+    const updatedMarks = [];
+    for (const subject of req.body.subjects) {
+      const { subjectId, marks } = subject;
+
+      // Check if the subject exists for the student
+      const subjectExists = student.subjects.includes(subjectId);
+      if (!subjectExists) {
+        updatedMarks.push({ subjectId, marks: null, message: "Subject not found for the student!" });
+      } else {
+        // Update marks for the subject
+        const updatedMark = await Mark.findOneAndUpdate(
+          { student: studentId, subject: subjectId },
+          { marks },
+          { new: true }
+        );
+        updatedMarks.push({ subjectId, marks: updatedMark ? updatedMark.marks : null, message: updatedMark ? "Marks updated successfully!" : "Marks not updated!" });
+      }
+    }
+
+    res.status(200).send({ message: "Marks updated for all subjects!", updatedMarks });
+  } catch (err) {
+    console.error(err);
+    res.status(500).send({ message: "Internal Server Error", error: err.message });
+  }
+});
 
 
 
