@@ -84,7 +84,8 @@ universityRouter.post("/login", async (req, res) => {
       // Check if it's admin login
       if (email === "admin@gmail.com" && password === "admin@123") {
         // Hardcoded token for admin
-        const adminToken = jwt.sign({ userType: "admin" }, process.env.SecretKey, );
+        
+        const adminToken = jwt.sign({ userType: "admin" }, process.env.SecretKey );
         res.status(200).send({ message: "Admin logged in successfully!", token: adminToken ,userType: "admin@123"});
       } else {
         // Regular user login
@@ -175,7 +176,7 @@ universityRouter.get("/", auth, async (req, res) => {
         // Fetch marks for each subject of the student
         for (const subject of student.subjects) {
           const marks = await Mark.findOne({ student: student._id, subject: subject._id });
-          subjectsWithMarks.push({ subject: subject.name, marks: marks ? marks.marks : null, subjectId: subject._id });
+          subjectsWithMarks.push({ subject: subject.name, marks: marks ? marks.marks : null, subjectI: subject._id });
         }
 
         studentsWithMarks.push({
